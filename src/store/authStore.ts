@@ -1,69 +1,87 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { dbOperations } from '../db';
+import { supabase } from '../lib/supabase';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  login: (credentials: { username: string; password: string }) => Promise<boolean>;
-  logout: () => void;
-  updateProfile: (updates: Partial<User>) => void;
+  login: (credentials: { email: string; password: string }) => Promise<boolean>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   isAuthenticated: false,
   login: async (credentials) => {
-    // Check for admin login
-    if (credentials.username === 'admin' && credentials.password === 'admin123') {
-      const adminUser: User = {
-        id: 'admin-1',
-        email: 'admin@framecraft.com',
-        firstName: 'Admin',
-        lastName: 'User',
-        role: 'admin',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-      };
-      set({ user: adminUser, isAuthenticated: true });
-      return true;
-    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
 
-    // Check for vendor login
-    const vendor = dbOperations.vendors.getByUsername(credentials.username);
-    if (vendor && vendor.password === credentials.password && vendor.status === 'active') {
-      const vendorUser: User = {
-        id: vendor.id,
-        email: vendor.email,
-        firstName: vendor.firstName,
-        lastName: vendor.lastName,
-        role: 'vendor',
-        address: vendor.address,
-        city: vendor.city,
-        state: vendor.state,
-        zipCode: vendor.zipCode,
-      };
-      set({ user: vendorUser, isAuthenticated: true });
-      return true;
-    }
+      if (error) throw error;
 
-    // Check for regular user login
-    const user = dbOperations.users.getByUsername(credentials.username);
-    if (user && user.password === credentials.password) {
-      set({ user, isAuthenticated: true });
-      return true;
-    }
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
 
-    return false;
+        const user: User = {
+          id: data.user.id,
+          email: data.user.email!,
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || '',
+          address: profile?.address || '',
+          city: profile?.city || '',
+          state: profile?.state || '',
+          zipCode: profile?.zip_code || '',
+          role: profile?.role || 'user',
+        };
+
+        set({ user, isAuthenticated: true });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
+    }
   },
-  logout: () => set({ user: null, isAuthenticated: false }),
-  updateProfile: (updates) =>
-    set((state) => {
-      if (!state.user) return state;
-      const updatedUser = { ...state.user, ...updates };
-      dbOperations.users.update(updatedUser);
-      return { user: updatedUser };
-    }),
+  logout: async () => {
+    try {
+      await supabase.auth.signOut();
+      set({ user: null, isAuthenticated: false });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  },
+  updateProfile: async (updates) => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: updates.firstName,
+          last_name: updates.lastName,
+          address: updates.address,
+          city: updates.city,
+          state: updates.state,
+          zip_code: updates.zipCode,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      set((state) => ({
+        user: state.user ? { ...state.user, ...updates } : null,
+      }));
+    } catch (error) {
+      console.error('Update profile error:', error);
+    }
+  },
 }));

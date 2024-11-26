@@ -22,8 +22,6 @@ export interface User {
   state: string;
   zipCode: string;
   role?: 'user' | 'admin' | 'vendor';
-  username?: string;
-  password?: string;
 }
 
 export interface Vendor {
