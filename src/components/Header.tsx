@@ -80,13 +80,15 @@ export default function Header() {
                     <span>Admin Dashboard</span>
                   </Link>
                 )}
-                <Link
-                  to="/orders"
-                  className="flex items-center space-x-1 text-sm font-medium text-gray-500 hover:text-gray-900"
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                  <span>My Orders</span>
-                </Link>
+                {!isAdmin && (
+                  <Link
+                    to="/orders"
+                    className="flex items-center space-x-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    <span>My Orders</span>
+                  </Link>
+                )}
                 <div className="relative group">
                   <button className="flex items-center space-x-1 text-sm font-medium text-gray-500 hover:text-gray-900">
                     <User className="h-5 w-5" />

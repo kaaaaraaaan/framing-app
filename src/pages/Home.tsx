@@ -1,118 +1,114 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Frame, Size } from '../types';
-import { frames, sizes } from '../data/frames';
-import ImageProcessor from '../components/ImageProcessor';
-import FramePreview from '../components/FramePreview';
-import { ArrowRight } from 'lucide-react';
+import React from 'react';
+import ImageUpload from '../components/ImageUpload';
+import { Frame } from '../types';
+
+const featuredFrames: Frame[] = [
+  {
+    id: 'rustic-barn-wood',
+    name: 'Rustic Barn Wood',
+    description: 'Weathered reclaimed wood frame with natural texture and warm tones',
+    price: 2500,
+    image: '/frames/rustic-barn-wood-frame.jpg'
+  },
+  {
+    id: 'sleek-minimalist-black',
+    name: 'Sleek Minimalist Black',
+    description: 'Ultra-thin matte black frame for modern and contemporary spaces',
+    price: 2200,
+    image: '/frames/sleek-minimalist-black-frame.jpg'
+  },
+  {
+    id: 'elegant-white-gallery',
+    name: 'Elegant White Gallery',
+    description: 'Clean white frame with subtle beveled edges, perfect for bright and airy interiors',
+    price: 2000,
+    image: '/frames/elegant-white-gallery-frame.jpg'
+  }
+];
 
 export default function Home() {
-  const navigate = useNavigate();
-  const [uploadedImage, setUploadedImage] = useState<string>('');
-  const [selectedFrame, setSelectedFrame] = useState<Frame>(frames[0]);
-  const [selectedSize, setSelectedSize] = useState<Size>(sizes[0]);
-
-  const handleCheckout = () => {
-    navigate('/checkout', {
-      state: {
-        image: uploadedImage,
-        frame: selectedFrame,
-        size: selectedSize,
-        totalPrice: selectedFrame.price * selectedSize.priceMultiplier
-      }
-    });
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Custom Frame Your Memories
-        </h1>
-        <p className="text-xl text-gray-600">
-          Transform your photos into beautiful wall art
-        </p>
-      </div>
-
-      {!uploadedImage ? (
-        <div className="max-w-2xl mx-auto">
-          <ImageProcessor onImageProcessed={setUploadedImage} />
+    <div className="bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+            Custom Frame Your Memories
+          </h1>
+          <p className="mt-4 max-w-3xl mx-auto text-xl text-gray-600">
+            Transform your cherished photos into stunning wall art with our personalized framing service
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div>
-            <FramePreview
-              uploadedImage={uploadedImage}
-              selectedFrame={selectedFrame}
-              selectedSize={selectedSize}
-            />
-          </div>
 
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Choose Your Frame
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {frames.map((frame) => (
-                  <button
-                    key={frame.id}
-                    onClick={() => setSelectedFrame(frame)}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      selectedFrame.id === frame.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-200'
-                    }`}
-                  >
-                    <img
-                      src={frame.image}
-                      alt={frame.name}
-                      className="w-full h-24 object-cover rounded mb-2"
-                    />
-                    <p className="font-medium text-gray-900">{frame.name}</p>
-                    <p className="text-gray-500">NPR {frame.price.toLocaleString()}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Image Upload Section */}
+        <div className="max-w-2xl mx-auto mb-16">
+          <ImageUpload />
+        </div>
 
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Select Size
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {sizes.map((size) => (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size)}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      selectedSize.id === size.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-200'
-                    }`}
-                  >
-                    <p className="font-medium text-gray-900">{size.name}</p>
-                    <p className="text-gray-500">{size.dimensions}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-4">
-              <button
-                onClick={handleCheckout}
-                className="w-full bg-blue-600 text-white py-4 px-8 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+        {/* Featured Frames Section */}
+        <div className="mt-16">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+            Explore Our Frame Styles
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {featuredFrames.map((frame) => (
+              <div 
+                key={frame.id} 
+                className="bg-white rounded-lg shadow-lg overflow-hidden transform transition-all hover:scale-105"
               >
-                Proceed to Checkout
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <p className="text-center mt-2 text-gray-500">
-                Total: NPR {(selectedFrame.price * selectedSize.priceMultiplier).toLocaleString()}
+                <div className="aspect-w-16 aspect-h-10">
+                  <img 
+                    src={frame.image} 
+                    alt={frame.name} 
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {frame.name}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {frame.description}
+                  </p>
+                  <div className="text-lg font-bold text-blue-600">
+                    NPR {frame.price.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="mt-24 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-12">
+            How It Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-lg shadow-md">
+              <div className="text-5xl font-bold text-blue-600 mb-4">1</div>
+              <h3 className="text-xl font-semibold mb-4">Upload Your Photo</h3>
+              <p className="text-gray-600">
+                Choose a high-quality photo that you want to frame
+              </p>
+            </div>
+            <div className="bg-white p-8 rounded-lg shadow-md">
+              <div className="text-5xl font-bold text-blue-600 mb-4">2</div>
+              <h3 className="text-xl font-semibold mb-4">Customize</h3>
+              <p className="text-gray-600">
+                Select your preferred frame style and size
+              </p>
+            </div>
+            <div className="bg-white p-8 rounded-lg shadow-md">
+              <div className="text-5xl font-bold text-blue-600 mb-4">3</div>
+              <h3 className="text-xl font-semibold mb-4">Checkout</h3>
+              <p className="text-gray-600">
+                Complete your order and we'll craft your custom frame
               </p>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

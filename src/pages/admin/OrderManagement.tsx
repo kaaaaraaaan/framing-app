@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../../store/orderStore';
-import { useVendorStore } from '../../store/vendorStore';
 import { ArrowLeft, Package } from 'lucide-react';
 
 export default function OrderManagement() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { orders, updateOrder } = useOrderStore();
-  const { vendors } = useVendorStore();
   const order = orders.find((o) => o.id === orderId);
 
   const [status, setStatus] = useState(order?.status || 'pending');
-  const [assignedVendorId, setAssignedVendorId] = useState(order?.assignedVendorId || '');
 
   if (!order) {
     return (
@@ -34,7 +31,6 @@ export default function OrderManagement() {
   const handleSave = () => {
     updateOrder(orderId!, {
       status,
-      assignedVendorId,
       updatedAt: new Date().toISOString()
     });
     navigate('/admin');
@@ -79,26 +75,6 @@ export default function OrderManagement() {
                     <option value="processing">Processing</option>
                     <option value="shipped">Shipped</option>
                     <option value="delivered">Delivered</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Assign Vendor
-                  </label>
-                  <select
-                    value={assignedVendorId}
-                    onChange={(e) => setAssignedVendorId(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">Select a vendor</option>
-                    {vendors
-                      .filter((v) => v.status === 'active')
-                      .map((vendor) => (
-                        <option key={vendor.id} value={vendor.id}>
-                          {vendor.firstName} {vendor.lastName}
-                        </option>
-                      ))}
                   </select>
                 </div>
               </div>

@@ -1,31 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import { useOrderStore } from '../store/orderStore';
+import { useOrderStore } from '../../store/orderStore';
 import { Package, ChevronRight } from 'lucide-react';
-import { Order } from '../types';
+import { Order } from '../../types';
 
-export default function Orders() {
-  const { user } = useAuthStore();
-  const { getOrders } = useOrderStore();
+export default function AdminOrders() {
+  const { getAllOrders } = useOrderStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrders = async () => {
-      if (user?.id) {
-        const userOrders = await getOrders(user.id);
-        setOrders(userOrders);
-      }
+      const allOrders = await getAllOrders();
+      setOrders(allOrders);
       setLoading(false);
     };
     fetchOrders();
-  }, [user, getOrders]);
+  }, [getAllOrders]);
 
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">My Orders</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-8">All Orders</h2>
         <div className="text-center py-12">
           <p>Loading orders...</p>
         </div>
@@ -35,23 +31,15 @@ export default function Orders() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-8">My Orders</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-8">All Orders</h2>
 
       {orders.length === 0 ? (
         <div className="text-center py-12">
           <Package className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No orders</h3>
           <p className="mt-1 text-sm text-gray-500">
-            You haven't placed any orders yet.
+            There are no orders in the system yet.
           </p>
-          <div className="mt-6">
-            <Link
-              to="/"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Start Shopping
-            </Link>
-          </div>
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -59,7 +47,7 @@ export default function Orders() {
             {orders.map((order) => (
               <li key={order.id}>
                 <Link
-                  to={`/orders/${order.id}`}
+                  to={`/admin/orders/${order.id}`}
                   className="block hover:bg-gray-50"
                 >
                   <div className="px-4 py-4 sm:px-6">
@@ -75,19 +63,27 @@ export default function Orders() {
                             Order #{order.id}
                           </p>
                           <p className="text-sm text-gray-500">
+                            Customer ID: {order.userId}
+                          </p>
+                          <p className="text-sm text-gray-500">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </p>
                           <p className="text-sm text-gray-500">
                             Status: {order.status}
                           </p>
-                          <p className="text-sm font-medium text-gray-900">
-                            Total: ${order.total.toFixed(2)}
-                          </p>
                         </div>
                       </div>
-                      <div className="ml-4">
+                      <div className="flex flex-col items-end">
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          ${order.total.toFixed(2)}
+                        </p>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                       </div>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Shipping to: {order.shippingAddress.city}, {order.shippingAddress.state}
+                      </p>
                     </div>
                   </div>
                 </Link>
