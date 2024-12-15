@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../../store/orderStore';
 import { ArrowLeft, Package } from 'lucide-react';
+import { Order } from '../../types';
 
 export default function OrderManagement() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { orders, updateOrder } = useOrderStore();
+  const { orders, updateOrderStatus } = useOrderStore();
   const order = orders.find((o) => o.id === orderId);
 
-  const [status, setStatus] = useState(order?.status || 'pending');
+  const [status, setStatus] = useState<Order['status']>(order?.status || 'pending');
 
-  if (!order) {
+  if (!order || !orderId) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="text-center">
@@ -28,12 +29,13 @@ export default function OrderManagement() {
     );
   }
 
-  const handleSave = () => {
-    updateOrder(orderId!, {
-      status,
-      updatedAt: new Date().toISOString()
-    });
-    navigate('/admin');
+  const handleSave = async () => {
+    try {
+      await updateOrderStatus(orderId, status);
+      navigate('/admin');
+    } catch (error) {
+      console.error('Failed to update order:', error);
+    }
   };
 
   return (
@@ -68,13 +70,14 @@ export default function OrderManagement() {
                   </label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
+                    onChange={(e) => setStatus(e.target.value as Order['status'])}
                     className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   >
                     <option value="pending">Pending</option>
                     <option value="processing">Processing</option>
                     <option value="shipped">Shipped</option>
                     <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
               </div>

@@ -1,113 +1,112 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
-
-export interface OrderItem {
-  id: string;
-  order_id: string;
-  frame_type: string;
-  frame_size: string;
-  image_url: string;
-  price: number;
-  quantity: number;
-}
-
-export interface Order {
-  id: string;
-  user_id: string;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered';
-  total_amount: number;
-  shipping_address_id: string;
-  created_at: string;
-  updated_at: string;
-  items?: OrderItem[];
-  shipping_address?: {
-    street: string;
-    city: string;
-    state: string;
-    zip_code: string;
-  };
-}
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, getDoc } from '@firebase/firestore';
+import { db } from '../lib/firebase';
+import { Order } from '../types';
 
 interface OrderState {
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  updateOrder: (orderId: string, updates: Partial<Order>) => Promise<void>;
-  getOrders: (userId: string) => Promise<Order[]>;
+  currentOrder: Order | null;
+  loading: boolean;
+  error: string | null;
+  createOrder: (orderData: Partial<Order>) => Promise<void>;
+  fetchOrders: (userId: string) => Promise<void>;
   getAllOrders: () => Promise<Order[]>;
+  updateOrderStatus: (orderId: string, status: string) => Promise<void>;
+  setCurrentOrder: (order: Order | null) => void;
 }
 
-export const useOrderStore = create<OrderState>((set) => ({
+export const useOrderStore = create<OrderState>((set, get) => ({
   orders: [],
+  currentOrder: null,
+  loading: false,
+  error: null,
 
-  addOrder: async (orderData) => {
-    const { data: order, error } = await supabase
-      .from('orders')
-      .insert([orderData])
-      .select()
-      .single();
+  createOrder: async (orderData: Partial<Order>) => {
+    set({ loading: true, error: null });
+    try {
+      const ordersRef = collection(db, 'orders');
+      const docRef = await addDoc(ordersRef, {
+        ...orderData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
 
-    if (error) {
-      throw new Error(error.message);
+      const newOrder = {
+        id: docRef.id,
+        ...orderData
+      } as Order;
+
+      set(state => ({
+        orders: [...state.orders, newOrder],
+        currentOrder: newOrder,
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error creating order:', error);
+      set({ error: 'Failed to create order', loading: false });
     }
-
-    set((state) => ({ orders: [...state.orders, order] }));
   },
 
-  updateOrder: async (orderId, updates) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
+  fetchOrders: async (userId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const ordersRef = collection(db, 'orders');
+      const q = query(ordersRef, where('userId', '==', userId));
+      const querySnapshot = await getDocs(q);
+      
+      const orders = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Order[];
 
-    if (error) {
-      throw new Error(error.message);
+      set({ orders, loading: false });
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      set({ error: 'Failed to fetch orders', loading: false });
     }
-
-    set((state) => ({
-      orders: state.orders.map((order) =>
-        order.id === orderId ? { ...order, ...updates } : order
-      ),
-    }));
-  },
-
-  getOrders: async (userId) => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        items:order_items(*),
-        shipping_address:addresses(*)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    set({ orders: data });
-    return data;
   },
 
   getAllOrders: async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        items:order_items(*),
-        shipping_address:addresses(*),
-        user:users(email, first_name, last_name)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw new Error(error.message);
+    try {
+      const ordersRef = collection(db, 'orders');
+      const querySnapshot = await getDocs(ordersRef);
+      const orders = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Order[];
+      return orders;
+    } catch (error) {
+      console.error('Error fetching all orders:', error);
+      throw error;
     }
-
-    set({ orders: data });
-    return data;
   },
+
+  updateOrderStatus: async (orderId: string, status: string) => {
+    set({ loading: true, error: null });
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status,
+        updatedAt: new Date().toISOString()
+      });
+
+      const updatedDoc = await getDoc(orderRef);
+      const updatedOrder = {
+        id: updatedDoc.id,
+        ...updatedDoc.data()
+      } as Order;
+
+      set(state => ({
+        orders: state.orders.map(order => 
+          order.id === orderId ? updatedOrder : order
+        ),
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      set({ error: 'Failed to update order status', loading: false });
+    }
+  },
+
+  setCurrentOrder: (order: Order | null) => set({ currentOrder: order })
 }));

@@ -54,8 +54,8 @@ export default function AdminOrders() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <img
-                          src={order.items[0]?.imageUrl || '/placeholder.jpg'}
-                          alt={order.items[0]?.name || 'Order item'}
+                          src={order.items && order.items.length > 0 ? order.items[0]?.imageUrl : '/placeholder.jpg'}
+                          alt={order.items && order.items.length > 0 ? order.items[0]?.name : 'Order item'}
                           className="h-16 w-16 object-cover rounded"
                         />
                         <div className="ml-4">
@@ -75,14 +75,17 @@ export default function AdminOrders() {
                       </div>
                       <div className="flex flex-col items-end">
                         <p className="text-sm font-medium text-gray-900 mb-1">
-                          ${order.total.toFixed(2)}
+                          ${(order.totalPrice || 0).toFixed(2)}
                         </p>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Shipping to: {order.shippingAddress.city}, {order.shippingAddress.state}
+                        {order.shippingAddress ? 
+                          `Shipping to: ${order.shippingAddress.city}, ${order.shippingAddress.state}` :
+                          'No shipping address provided'
+                        }
                       </p>
                     </div>
                   </div>

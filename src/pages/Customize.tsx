@@ -51,10 +51,19 @@ export default function Customize() {
     navigate('/checkout');
   };
 
+  // If no image is uploaded, redirect to home
   if (!uploadedImage) {
     navigate('/');
     return null;
   }
+
+  // Function to get image source
+  const getImageSrc = () => {
+    if (typeof uploadedImage === 'string') {
+      return uploadedImage;
+    }
+    return URL.createObjectURL(uploadedImage);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -64,7 +73,7 @@ export default function Customize() {
           <h2 className="text-xl font-semibold mb-4">Preview</h2>
           <div className="aspect-w-1 aspect-h-1 bg-gray-100 rounded-lg overflow-hidden">
             <img
-              src={uploadedImage}
+              src={getImageSrc()}
               alt="Your uploaded photo"
               className="object-contain"
             />

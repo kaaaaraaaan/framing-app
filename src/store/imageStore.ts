@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 interface ImageState {
-  uploadedImage: string | null;
-  setUploadedImage: (image: string | null) => void;
+  uploadedImage: File | string | null;
+  setUploadedImage: (image: File | string | null) => void;
 }
 
 export const useImageStore = create<ImageState>((set) => ({

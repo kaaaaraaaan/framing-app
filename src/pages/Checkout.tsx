@@ -9,7 +9,19 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { addOrder } = useOrderStore();
-  const { image, frame, size, totalPrice } = location.state;
+  
+  // Handle both single item and cart checkout flows
+  const cartItems = location.state?.cartItems;
+  const singleItem = location.state?.image ? {
+    image: location.state.image,
+    frame: location.state.frame,
+    size: location.state.size,
+    totalPrice: location.state.totalPrice
+  } : null;
+
+  const totalAmount = cartItems 
+    ? cartItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
+    : singleItem?.totalPrice || 0;
 
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -28,31 +40,30 @@ export default function Checkout() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const order = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId: user?.id || '',
-      frame,
-      size,
-      image,
-      totalPrice,
-      status: 'pending' as const,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      shippingAddress: {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zipCode
+    try {
+      if (!user) {
+        navigate('/login');
+        return;
       }
-    };
 
-    addOrder(order);
-    navigate('/success');
+      const orderData = {
+        ...formData,
+        userId: user.uid,
+        items: cartItems || [singleItem],
+        totalAmount,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      await addOrder(orderData);
+      navigate('/success');
+    } catch (error) {
+      console.error('Error creating order:', error);
+      // Handle error appropriately
+    }
   };
 
   return (
@@ -62,11 +73,17 @@ export default function Checkout() {
           <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
           <div className="text-right">
             <p className="text-sm text-gray-500">Order Summary</p>
-            <p className="text-lg font-medium text-gray-900">
-              {frame.name} - {size.dimensions}
-            </p>
+            {cartItems ? (
+              <p className="text-lg font-medium text-gray-900">
+                {cartItems.length} items
+              </p>
+            ) : (
+              <p className="text-lg font-medium text-gray-900">
+                {singleItem?.frame.name} - {singleItem?.size.dimensions}
+              </p>
+            )}
             <p className="text-xl font-bold text-blue-600">
-              ${totalPrice.toFixed(2)}
+              ${totalAmount.toFixed(2)}
             </p>
           </div>
         </div>

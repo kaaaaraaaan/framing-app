@@ -1,25 +1,121 @@
-import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useOrderStore } from '../../store/orderStore';
-import { Package, Users, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Navigate, Link } from 'react-router-dom';
+import { isAdmin } from '../../utils/adminCheck';
+import { orderService, OrderStatus, Order as DbOrder } from '../../services/orderService';
+import { Box, Settings as SettingsIcon, ShoppingBag, Package, Users } from 'lucide-react';
+import type { Order } from '../../types';
 
-export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const { orders } = useOrderStore();
+const mapDbOrderToAppOrder = (dbOrder: DbOrder & { id: string }): Order => {
+  return {
+    id: dbOrder.id,
+    userId: dbOrder.user_id || '',
+    status: dbOrder.status || 'pending',
+    totalPrice: dbOrder.total_price || 0,
+    customerEmail: dbOrder.customer_email || '',
+    createdAt: dbOrder.created_at || new Date().toISOString(),
+    updatedAt: dbOrder.updated_at || new Date().toISOString(),
+    items: [],
+    shippingAddress: {
+      firstName: '',
+      lastName: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    },
+    frame: {
+      name: dbOrder.frame_details?.name || '',
+      image: dbOrder.frame_details?.image || ''
+    },
+    size: {
+      dimensions: dbOrder.frame_details?.size || ''
+    }
+  };
+};
 
-  const stats = {
-    totalOrders: orders.length,
-    pendingOrders: orders.filter((order) => order.status === 'pending').length,
-    processingOrders: orders.filter((order) => order.status === 'processing').length,
-    completedOrders: orders.filter((order) => order.status === 'delivered').length,
+const AdminDashboard: React.FC = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adminStatus, setAdminStatus] = useState<boolean | null>(null);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0
+  });
+
+  useEffect(() => {
+    const checkAdminAndFetchOrders = async () => {
+      try {
+        const isAdminUser = await isAdmin();
+        setAdminStatus(isAdminUser);
+
+        if (!isAdminUser) {
+          setError('Unauthorized access');
+          setLoading(false);
+          return;
+        }
+
+        const fetchedOrders = await orderService.getAllOrders();
+        const mappedOrders = fetchedOrders.map(order => 
+          mapDbOrderToAppOrder({ ...order, id: order.id || '' })
+        );
+        setOrders(mappedOrders);
+
+        // Calculate statistics
+        const totalOrders = mappedOrders.length;
+        const pendingOrders = mappedOrders.filter(order => order.status === 'pending').length;
+        const totalRevenue = mappedOrders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+        setStats({
+          totalOrders,
+          pendingOrders,
+          totalRevenue,
+          avgOrderValue
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAdminAndFetchOrders();
+  }, []);
+
+  const handleStatusUpdate = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      const updatedDbOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      setOrders(orders.map(order => 
+        order.id === orderId 
+          ? mapDbOrderToAppOrder({ ...updatedDbOrder, id: orderId })
+          : order
+      ));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update order status');
+    }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
+  if (adminStatus === false) {
+    return <Navigate to="/" replace />;
+  }
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 className="text-3xl font-semibold text-gray-900 mb-8">Admin Dashboard</h1>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -28,12 +124,8 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Orders
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {stats.totalOrders}
-                  </dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
+                  <dd className="text-lg font-medium text-gray-900">{stats.totalOrders}</dd>
                 </dl>
               </div>
             </div>
@@ -44,16 +136,12 @@ export default function AdminDashboard() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Package className="h-6 w-6 text-yellow-400" />
+                <Box className="h-6 w-6 text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Pending Orders
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {stats.pendingOrders}
-                  </dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Pending Orders</dt>
+                  <dd className="text-lg font-medium text-gray-900">{stats.pendingOrders}</dd>
                 </dl>
               </div>
             </div>
@@ -64,16 +152,12 @@ export default function AdminDashboard() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Package className="h-6 w-6 text-blue-400" />
+                <ShoppingBag className="h-6 w-6 text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Processing
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {stats.processingOrders}
-                  </dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                  <dd className="text-lg font-medium text-gray-900">NPR {stats.totalRevenue.toLocaleString()}</dd>
                 </dl>
               </div>
             </div>
@@ -84,16 +168,12 @@ export default function AdminDashboard() {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Package className="h-6 w-6 text-green-400" />
+                <Users className="h-6 w-6 text-gray-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Completed
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    {stats.completedOrders}
-                  </dd>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Avg. Order Value</dt>
+                  <dd className="text-lg font-medium text-gray-900">NPR {stats.avgOrderValue.toLocaleString()}</dd>
                 </dl>
               </div>
             </div>
@@ -102,99 +182,100 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Link
+          to="/admin/products"
+          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow"
+        >
+          <h3 className="text-lg font-medium text-gray-900">Manage Products</h3>
+          <p className="mt-2 text-sm text-gray-500">Add, edit, or remove products from your store</p>
+        </Link>
+
         <Link
           to="/admin/orders"
-          className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
+          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow"
         >
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Manage Orders
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900">
-                    View All Orders
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+          <h3 className="text-lg font-medium text-gray-900">Order Management</h3>
+          <p className="mt-2 text-sm text-gray-500">View and manage customer orders</p>
+        </Link>
+
+        <Link
+          to="/admin/settings"
+          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow"
+        >
+          <h3 className="text-lg font-medium text-gray-900">Settings</h3>
+          <p className="mt-2 text-sm text-gray-500">Configure system settings and preferences</p>
         </Link>
       </div>
 
-      {/* Actions */}
-      <div className="mb-8 flex flex-wrap gap-4">
-        <button
-          onClick={() => navigate('/admin/settings')}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
-        </button>
-      </div>
-
-      {/* Orders Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Order ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  #{order.id}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                    ${order.status === 'processing' ? 'bg-blue-100 text-blue-800' : ''}
-                    ${order.status === 'shipped' ? 'bg-purple-100 text-purple-800' : ''}
-                    ${order.status === 'delivered' ? 'bg-green-100 text-green-800' : ''}
-                  `}>
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  NPR {order.totalPrice.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => navigate(`/admin/orders/${order.id}`)}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    Manage
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Recent Orders */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+          <h2 className="text-lg font-medium text-gray-900">Recent Orders</h2>
+          <Link
+            to="/admin/orders"
+            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            View all
+          </Link>
+        </div>
+        <div className="flex flex-col">
+          <div className="overflow-x-auto">
+            <div className="align-middle inline-block min-w-full">
+              <div className="overflow-hidden border-t border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {orders.slice(0, 5).map((order) => (
+                      <tr key={order.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {order.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {order.customerEmail}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          NPR {(order.totalPrice || 0).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={order.status}
+                            onChange={(e) => handleStatusUpdate(order.id, e.target.value as OrderStatus)}
+                            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default AdminDashboard;
